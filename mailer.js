@@ -1,29 +1,36 @@
-import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import nodemailer from "nodemailer";
+import dotenv from "dotenv";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config();
 
-// Fixed to use your exact .env variable names: EMAIL_USER and EMAIL_PASS
+// Check if environment variables are loaded
+console.log("EMAIL_USER:", process.env.EMAIL_USER);
+console.log("ADMIN_EMAIL:", process.env.ADMIN_EMAIL);
+console.log(
+  "EMAIL_PASS:",
+  process.env.EMAIL_PASS ? "Loaded ✅" : "Missing ❌"
+);
+
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Must be false for port 587
+  service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS  // Make sure this is your 16-character Google App Password
-  }
+    pass: process.env.EMAIL_PASS,
+  },
+  connectionTimeout: 30000,
+  greetingTimeout: 30000,
+  socketTimeout: 30000,
+  tls: {
+    rejectUnauthorized: false,
+  },
 });
 
-// Verification check to print errors directly to the terminal on startup
+// Verify SMTP connection
 transporter.verify((error, success) => {
   if (error) {
-    console.error("❌ Gmail connection failed. Error details:", error);
+    console.error("❌ Gmail connection failed:", error);
   } else {
-    console.log("✉️ Gmail Server connected and ready to send emails!");
+    console.log("✅ Gmail Server connected and ready to send emails!");
   }
 });
 
