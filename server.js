@@ -20,7 +20,12 @@ const app = express();
 const PORT = process.env.PORT || 5000; // Shifted to 5000 to match standard MERN routing
 
 // Middleware
-app.use(cors());
+// Middleware
+app.use(cors({
+  origin: ['https://pooja-travels-eta.vercel.app/', 'http://localhost:3000'], 
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
