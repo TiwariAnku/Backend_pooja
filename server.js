@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 5000; // Shifted to 5000 to match standard MERN
 // Middleware
 // Middleware
 app.use(cors({
-  origin: ['https://pooja-travels-eta.vercel.app/', 'http://localhost:3000'], 
+  origin: ['https://pooja-travels-eta.vercel.app', 'http://localhost:3000'], 
   methods: ['GET', 'POST'],
   credentials: true
 }));
