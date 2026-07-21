@@ -21,7 +21,7 @@ export const sendBookingEmails = async (bookingData) => {
   const tableContent = `
     <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; margin-top: 15px;">
       <tr style="background-color: #f8fafc;">
-        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold; width: 30%;">Employee Name</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold; width: 30%;">Employee/Customer Name</td>
         <td style="padding: 10px; border: 1px solid #e2e8f0;">${empName}</td>
       </tr>
       <tr>
@@ -30,7 +30,7 @@ export const sendBookingEmails = async (bookingData) => {
       </tr>
       <tr style="background-color: #f8fafc;">
         <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Email Address</td>
-        <td style="padding: 10px; border: 1px solid #e2e8f0;">${employeeEmail}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0;"><a href="mailto:${employeeEmail}">${employeeEmail}</a></td>
       </tr>
       <tr>
         <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Car Requested</td>
@@ -52,22 +52,23 @@ export const sendBookingEmails = async (bookingData) => {
   `;
 
   try {
-    // Only dispatching 1 email to ADMIN
+    // 🚨 Only 1 Email is sent directly to Admin
     await resend.emails.send({
       from: "Pooja Travels <onboarding@resend.dev>",
-      to: [process.env.ADMIN_EMAIL],
-      subject: `🚨 NEW CAB BOOKING REQUEST - ${empName} (${carType})`,
+      to: [process.env.ADMIN_EMAIL], // Admin receives this
+      replyTo: employeeEmail, // Admin simple 'Reply' daba kar customer ko contact kar sakta hai
+      subject: `🚨 NEW BOOKING REQUEST: ${empName} - ${carType}`,
       html: `
         <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
           <h2 style="color: #0f172a; border-bottom: 3px solid #f59e0b; padding-bottom: 10px;">New Booking Alert</h2>
-          <p>Hello Admin, a new travel reservation form payload has been registered via your web portal. Details follow below:</p>
+          <p>Hello Admin, a customer has requested a car booking through the website. Here are the details:</p>
           ${tableContent}
-          <p style="margin-top: 20px; font-size: 12px; color: #94a3b8;">Pooja Travels CMS Engine System • Automated Notification Link</p>
+          <p style="margin-top: 20px; font-size: 12px; color: #94a3b8;">Pooja Travels Automated Booking System</p>
         </div>
       `,
     });
 
-    console.log("✉️ Admin notification email successfully sent via Resend API!");
+    console.log("✉️ Booking notification email successfully sent to Admin!");
   } catch (error) {
     console.error("Resend API error inside mailer.js:", error);
     throw error;
