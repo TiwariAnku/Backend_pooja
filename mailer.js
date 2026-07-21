@@ -1,9 +1,6 @@
-import { Resend } from "resend";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendBookingEmails = async (bookingData) => {
   const {
@@ -51,30 +48,56 @@ export const sendBookingEmails = async (bookingData) => {
     </table>
   `;
 
+  // Helper function to send email via Brevo REST API over HTTPS
+  const sendEmailViaBrevo = async (toEmail, subject, htmlContent) => {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "api-key": process.env.BREVO_API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "Pooja Travels",
+          email: process.env.EMAIL_USER, // Must be the email you verified in Brevo
+        },
+        to: [{ email: toEmail }],
+        subject: subject,
+        htmlContent: htmlContent,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Brevo API Error: ${JSON.stringify(errorData)}`);
+    }
+
+    return response.json();
+  };
+
   try {
-    // Dispatching via Resend HTTP API (Works on Render Free Tier)
+    // Send both emails simultaneously
     await Promise.all([
-      // EMAIL A: Sent to Admin
-      resend.emails.send({
-        from: "Pooja Travels <onboarding@resend.dev>", // Default sender provided by Resend
-        to: [process.env.ADMIN_EMAIL],
-        subject: `🚨 NEW CAB BOOKING REQUEST - ${empName} (${carType})`,
-        html: `
+      // EMAIL A: Admin Notification
+      sendEmailViaBrevo(
+        process.env.ADMIN_EMAIL,
+        `🚨 NEW CAB BOOKING REQUEST - ${empName} (${carType})`,
+        `
           <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
             <h2 style="color: #0f172a; border-bottom: 3px solid #f59e0b; padding-bottom: 10px;">New Booking Alert</h2>
             <p>Hello Admin, a new travel reservation form payload has been registered via your web portal. Details follow below:</p>
             ${tableContent}
             <p style="margin-top: 20px; font-size: 12px; color: #94a3b8;">Pooja Travels CMS Engine System • Automated Notification Link</p>
           </div>
-        `,
-      }),
+        `
+      ),
 
-      // EMAIL B: Sent to Passenger/Employee
-      resend.emails.send({
-        from: "Pooja Travels <onboarding@resend.dev>",
-        to: [employeeEmail],
-        subject: `🚖 Cab Booking Acknowledgment - Pooja Travels`,
-        html: `
+      // EMAIL B: Customer Confirmation
+      sendEmailViaBrevo(
+        employeeEmail,
+        `🚖 Cab Booking Acknowledgment - Pooja Travels`,
+        `
           <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
             <h2 style="color: #0f172a; border-bottom: 3px solid #f59e0b; padding-bottom: 10px;">Booking Order Received</h2>
             <p>Dear ${empName},</p>
@@ -91,13 +114,13 @@ export const sendBookingEmails = async (bookingData) => {
               Contact: 9594917750 / 9702909087 | GSTIN: 27AICPT7468H1ZP
             </p>
           </div>
-        `,
-      }),
+        `
+      ),
     ]);
 
-    console.log("✉️ Emails successfully sent via Resend API!");
+    console.log("✉️ Both Admin and Customer emails sent successfully via Brevo!");
   } catch (error) {
-    console.error("Resend API error inside mailer.js:", error);
+    console.error("Error sending email in mailer.js:", error);
     throw error;
   }
 };
