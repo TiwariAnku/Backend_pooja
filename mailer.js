@@ -4,32 +4,33 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Check if environment variables are loaded
-console.log("EMAIL_USER:", process.env.EMAIL_USER);
-console.log("ADMIN_EMAIL:", process.env.ADMIN_EMAIL);
-console.log(
-  "EMAIL_PASS:",
-  process.env.EMAIL_PASS ? "Loaded ✅" : "Missing ❌"
-);
+console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Loaded ✅" : "Missing ❌");
+console.log("ADMIN_EMAIL:", process.env.ADMIN_EMAIL ? "Loaded ✅" : "Missing ❌");
+console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Loaded ✅" : "Missing ❌");
 
+// Optimized SMTP configuration for Cloud Hosts (Render)
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,                  // Switched to 587 for STARTTLS (Works seamlessly on Render)
+  secure: false,              // Must be false for port 587
+  pool: true,                 // Use connection pooling to prevent socket drops
+  maxConnections: 3,          // Prevents Gmail rate-limiting on simultaneous sends
+  connectionTimeout: 10000,   // 10 seconds socket timeout before throwing an error
+  greetingTimeout: 5000,      // 5 seconds waiting for server response
+  socketTimeout: 15000,       // 15 seconds max inactivity timeout
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS, // Must be 16-character Google App Password (no spaces)
   },
-   family: 4,
-  connectionTimeout: 30000,
-  greetingTimeout: 30000,
-  socketTimeout: 30000,
   tls: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, // Prevents self-signed SSL handshake failures on cloud proxies
   },
 });
 
-// Verify SMTP connection
+// Verify SMTP connection on startup
 transporter.verify((error, success) => {
   if (error) {
-    console.error("❌ Gmail connection failed:", error);
+    console.error("❌ Gmail connection failed on Render startup:", error.message);
   } else {
     console.log("✅ Gmail Server connected and ready to send emails!");
   }
@@ -76,14 +77,15 @@ export const sendBookingEmails = async (bookingData) => {
       </tr>
       <tr style="background-color: #f8fafc;">
         <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Special Remarks</td>
-        <td style="padding: 10px; border: 1px solid #e2e8f0; font-style: italic;">${remarks}</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-style: italic;">${remarks || "N/A"}</td>
       </tr>
     </table>
   `;
 
   try {
+    // Dispatching sequentially or using Promise.all logic safely
     await Promise.all([
-      // EMAIL A: Sent to Admin (using ADMIN_EMAIL from your .env)
+      // EMAIL A: Sent to Admin
       transporter.sendMail({
         from: `"Pooja Travels Engine" <${process.env.EMAIL_USER}>`,
         to: process.env.ADMIN_EMAIL, 
@@ -124,9 +126,9 @@ export const sendBookingEmails = async (bookingData) => {
       }),
     ]);
 
-    console.log('✉️ Simultaneous corporate and client update emails dispatched seamlessly.');
+    console.log("✉️ Simultaneous corporate and client update emails dispatched seamlessly.");
   } catch (error) {
-    console.error('Nodemailer pipeline breakdown inside mailer.js:', error);
+    console.error("Nodemailer pipeline breakdown inside mailer.js:", error);
     throw error;
   }
 };
