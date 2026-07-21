@@ -18,6 +18,15 @@ export const sendBookingEmails = async (bookingData) => {
     remarks,
   } = bookingData;
 
+  // 🔍 Debugging log: Render logs mein check karne ke liye
+  console.log("🔍 Checking Environment Variables:");
+  console.log("RESEND_API_KEY present?:", !!process.env.RESEND_API_KEY);
+  console.log("ADMIN_EMAIL from env:", process.env.ADMIN_EMAIL);
+  console.log("Customer email received:", employeeEmail);
+
+  // ⚠️ Temporary: Yahan apni Resend wali registered Gmail ID direct daal kar dekhein
+  const targetAdminEmail = "poojatravels111@gmail.com"; 
+
   const tableContent = `
     <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; margin-top: 15px;">
       <tr style="background-color: #f8fafc;">
@@ -52,11 +61,10 @@ export const sendBookingEmails = async (bookingData) => {
   `;
 
   try {
-    // 🚨 Only 1 Email is sent directly to Admin
-    await resend.emails.send({
+    const response = await resend.emails.send({
       from: "Pooja Travels <onboarding@resend.dev>",
-      to: [process.env.ADMIN_EMAIL], // Admin receives this
-      replyTo: employeeEmail, // Admin simple 'Reply' daba kar customer ko contact kar sakta hai
+      to: [targetAdminEmail], // Directly sending to hardcoded admin email
+      // reply_to: employeeEmail, // Temporary disabled for testing
       subject: `🚨 NEW BOOKING REQUEST: ${empName} - ${carType}`,
       html: `
         <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
@@ -68,9 +76,9 @@ export const sendBookingEmails = async (bookingData) => {
       `,
     });
 
-    console.log("✉️ Booking notification email successfully sent to Admin!");
+    console.log("✉️ Resend API Response Object:", JSON.stringify(response, null, 2));
   } catch (error) {
-    console.error("Resend API error inside mailer.js:", error);
+    console.error("❌ Resend API error inside mailer.js:", error);
     throw error;
   }
 };
