@@ -1,40 +1,9 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-// Check if environment variables are loaded
-console.log("EMAIL_USER:", process.env.EMAIL_USER ? "Loaded ✅" : "Missing ❌");
-console.log("ADMIN_EMAIL:", process.env.ADMIN_EMAIL ? "Loaded ✅" : "Missing ❌");
-console.log("EMAIL_PASS:", process.env.EMAIL_PASS ? "Loaded ✅" : "Missing ❌");
-
-// Optimized SMTP configuration for Cloud Hosts (Render)
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,                  // Switched to 587 for STARTTLS (Works seamlessly on Render)
-  secure: false,              // Must be false for port 587
-  pool: true,                 // Use connection pooling to prevent socket drops
-  maxConnections: 3,          // Prevents Gmail rate-limiting on simultaneous sends
-  connectionTimeout: 10000,   // 10 seconds socket timeout before throwing an error
-  greetingTimeout: 5000,      // 5 seconds waiting for server response
-  socketTimeout: 15000,       // 15 seconds max inactivity timeout
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Must be 16-character Google App Password (no spaces)
-  },
-  tls: {
-    rejectUnauthorized: false, // Prevents self-signed SSL handshake failures on cloud proxies
-  },
-});
-
-// Verify SMTP connection on startup
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ Gmail connection failed on Render startup:", error.message);
-  } else {
-    console.log("✅ Gmail Server connected and ready to send emails!");
-  }
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendBookingEmails = async (bookingData) => {
   const {
@@ -83,12 +52,12 @@ export const sendBookingEmails = async (bookingData) => {
   `;
 
   try {
-    // Dispatching sequentially or using Promise.all logic safely
+    // Dispatching via Resend HTTP API (Works on Render Free Tier)
     await Promise.all([
       // EMAIL A: Sent to Admin
-      transporter.sendMail({
-        from: `"Pooja Travels Engine" <${process.env.EMAIL_USER}>`,
-        to: process.env.ADMIN_EMAIL, 
+      resend.emails.send({
+        from: "Pooja Travels <onboarding@resend.dev>", // Default sender provided by Resend
+        to: [process.env.ADMIN_EMAIL],
         subject: `🚨 NEW CAB BOOKING REQUEST - ${empName} (${carType})`,
         html: `
           <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
@@ -100,10 +69,10 @@ export const sendBookingEmails = async (bookingData) => {
         `,
       }),
 
-      // EMAIL B: Sent directly to Passenger/Employee Inbox
-      transporter.sendMail({
-        from: `"Pooja Travels" <${process.env.EMAIL_USER}>`,
-        to: employeeEmail,
+      // EMAIL B: Sent to Passenger/Employee
+      resend.emails.send({
+        from: "Pooja Travels <onboarding@resend.dev>",
+        to: [employeeEmail],
         subject: `🚖 Cab Booking Acknowledgment - Pooja Travels`,
         html: `
           <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
@@ -126,9 +95,9 @@ export const sendBookingEmails = async (bookingData) => {
       }),
     ]);
 
-    console.log("✉️ Simultaneous corporate and client update emails dispatched seamlessly.");
+    console.log("✉️ Emails successfully sent via Resend API!");
   } catch (error) {
-    console.error("Nodemailer pipeline breakdown inside mailer.js:", error);
+    console.error("Resend API error inside mailer.js:", error);
     throw error;
   }
 };
