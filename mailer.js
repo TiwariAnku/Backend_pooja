@@ -18,45 +18,86 @@ export const sendBookingEmails = async (bookingData) => {
     remarks,
   } = bookingData;
 
-  // The email address you signed up with on Resend (e.g. your personal/admin email)
-  const MY_VERIFIED_RESEND_EMAIL = process.env.ADMIN_EMAIL;
+  // Set sender domain (use onboarding@resend.dev until you add a custom domain in Resend)
+  const SENDER_EMAIL = process.env.SENDER_EMAIL || "Pooja Travels <onboarding@resend.dev>";
+  
+  // Resend restricts 'to' addresses to your account email when using onboarding@resend.dev
+  const adminRecipient = process.env.ADMIN_EMAIL;
+  
+  // If you are using onboarding@resend.dev, route customer email to admin during testing
+  const customerRecipient = SENDER_EMAIL.includes("onboarding@resend.dev") 
+    ? process.env.ADMIN_EMAIL 
+    : employeeEmail;
+
+  const tableContent = `
+    <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; margin-top: 15px;">
+      <tr style="background-color: #f8fafc;">
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold; width: 30%;">Employee Name</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0;">${empName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Cell Number</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0;">${cellNo}</td>
+      </tr>
+      <tr style="background-color: #f8fafc;">
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Customer Email</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0;">${employeeEmail}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Car Requested</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; color: #d97706; font-weight: bold;">${carType}</td>
+      </tr>
+      <tr style="background-color: #f8fafc;">
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Pickup Details</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0;">${pickupAddress} <br><small style="color:#64748b;">(${pickupDateTime})</small></td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Drop Details</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0;">${dropAddress} <br><small style="color:#64748b;">(${dropDateTime})</small></td>
+      </tr>
+      <tr style="background-color: #f8fafc;">
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Special Remarks</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-style: italic;">${remarks || "N/A"}</td>
+      </tr>
+    </table>
+  `;
 
   try {
-    // 1. Send Admin Email
-    await resend.emails.send({
-      from: "Pooja Travels <onboarding@resend.dev>",
-      to: [MY_VERIFIED_RESEND_EMAIL], // Must be your registered Resend email in testing mode
-      subject: `🚨 NEW CAB BOOKING REQUEST - ${empName} (${carType})`,
-      html: `
-        <h2>New Booking Request</h2>
-        <p><strong>Customer Name:</strong> ${empName}</p>
-        <p><strong>Phone:</strong> ${cellNo}</p>
-        <p><strong>Email:</strong> ${employeeEmail}</p>
-        <p><strong>Vehicle:</strong> ${carType}</p>
-        <p><strong>Pickup:</strong> ${pickupAddress} (${pickupDateTime})</p>
-        <p><strong>Drop:</strong> ${dropAddress} (${dropDateTime})</p>
-        <p><strong>Remarks:</strong> ${remarks || "N/A"}</p>
-      `,
-    });
+    // Dispatch both emails in parallel via Resend
+    await Promise.all([
+      // 1. Admin Email
+      resend.emails.send({
+        from: SENDER_EMAIL,
+        to: [adminRecipient],
+        subject: `🚨 NEW CAB BOOKING REQUEST - ${empName} (${carType})`,
+        html: `
+          <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
+            <h2 style="color: #0f172a; border-bottom: 3px solid #f59e0b; padding-bottom: 10px;">New Booking Alert</h2>
+            <p>Hello Admin, a new booking request has been submitted. Details follow below:</p>
+            ${tableContent}
+          </div>
+        `,
+      }),
 
-    // 2. Send Customer Confirmation Email
-    // NOTE: In Resend Testing Mode, 'to' must be your verified account email unless you verify a domain.
-    const recipient = process.env.NODE_ENV === "production" ? employeeEmail : MY_VERIFIED_RESEND_EMAIL;
+      // 2. Customer Confirmation Email
+      resend.emails.send({
+        from: SENDER_EMAIL,
+        to: [customerRecipient],
+        subject: `🚖 Cab Booking Acknowledgment - Pooja Travels`,
+        html: `
+          <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
+            <h2 style="color: #0f172a; border-bottom: 3px solid #f59e0b; padding-bottom: 10px;">Booking Order Received</h2>
+            <p>Dear ${empName},</p>
+            <p>Thank you for choosing <strong>Pooja Travels</strong>. We have registered your request and our dispatch team will reach out shortly.</p>
+            ${tableContent}
+          </div>
+        `,
+      }),
+    ]);
 
-    await resend.emails.send({
-      from: "Pooja Travels <onboarding@resend.dev>",
-      to: [recipient],
-      subject: `🚖 Cab Booking Acknowledgment - Pooja Travels`,
-      html: `
-        <h2>Booking Order Received</h2>
-        <p>Dear ${empName},</p>
-        <p>Thank you for choosing <strong>Pooja Travels</strong>. We have successfully registered your cab request for ${carType}.</p>
-      `,
-    });
-
-    console.log("✉️ Both Admin and Customer emails dispatched successfully!");
+    console.log("✉️ Both Admin and Customer emails successfully sent via Resend!");
   } catch (error) {
-    console.error("❌ Resend error:", error);
+    console.error("❌ Resend API Error:", error);
     throw error;
   }
 };
