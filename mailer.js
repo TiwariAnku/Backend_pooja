@@ -50,6 +50,11 @@ export const sendBookingEmails = async (bookingData) => {
 
   // Helper function to send email via Brevo REST API over HTTPS
   const sendEmailViaBrevo = async (toEmail, subject, htmlContent) => {
+    // Basic validation guard
+    if (!toEmail) {
+      throw new Error("Recipient target email address is missing or undefined.");
+    }
+
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
@@ -60,7 +65,7 @@ export const sendBookingEmails = async (bookingData) => {
       body: JSON.stringify({
         sender: {
           name: "Pooja Travels",
-          email: process.env.EMAIL_USER, // Must be the email you verified in Brevo
+          email: process.env.EMAIL_USER, // Must match verified sender in Brevo
         },
         to: [{ email: toEmail }],
         subject: subject,
