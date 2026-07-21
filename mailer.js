@@ -18,19 +18,10 @@ export const sendBookingEmails = async (bookingData) => {
     remarks,
   } = bookingData;
 
-  // 🔍 Debugging log: Render logs mein check karne ke liye
-  console.log("🔍 Checking Environment Variables:");
-  console.log("RESEND_API_KEY present?:", !!process.env.RESEND_API_KEY);
-  console.log("ADMIN_EMAIL from env:", process.env.ADMIN_EMAIL);
-  console.log("Customer email received:", employeeEmail);
-
-  // ⚠️ Temporary: Yahan apni Resend wali registered Gmail ID direct daal kar dekhein
-  const targetAdminEmail = "poojatravels111@gmail.com"; 
-
   const tableContent = `
     <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; margin-top: 15px;">
       <tr style="background-color: #f8fafc;">
-        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold; width: 30%;">Employee/Customer Name</td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold; width: 30%;">Employee Name</td>
         <td style="padding: 10px; border: 1px solid #e2e8f0;">${empName}</td>
       </tr>
       <tr>
@@ -39,7 +30,7 @@ export const sendBookingEmails = async (bookingData) => {
       </tr>
       <tr style="background-color: #f8fafc;">
         <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Email Address</td>
-        <td style="padding: 10px; border: 1px solid #e2e8f0;"><a href="mailto:${employeeEmail}">${employeeEmail}</a></td>
+        <td style="padding: 10px; border: 1px solid #e2e8f0;">${employeeEmail}</td>
       </tr>
       <tr>
         <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">Car Requested</td>
@@ -61,24 +52,52 @@ export const sendBookingEmails = async (bookingData) => {
   `;
 
   try {
-    const response = await resend.emails.send({
-      from: "Pooja Travels <onboarding@resend.dev>",
-      to: [targetAdminEmail], // Directly sending to hardcoded admin email
-      // reply_to: employeeEmail, // Temporary disabled for testing
-      subject: `🚨 NEW BOOKING REQUEST: ${empName} - ${carType}`,
-      html: `
-        <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
-          <h2 style="color: #0f172a; border-bottom: 3px solid #f59e0b; padding-bottom: 10px;">New Booking Alert</h2>
-          <p>Hello Admin, a customer has requested a car booking through the website. Here are the details:</p>
-          ${tableContent}
-          <p style="margin-top: 20px; font-size: 12px; color: #94a3b8;">Pooja Travels Automated Booking System</p>
-        </div>
-      `,
-    });
+    // Dispatching via Resend HTTP API (Works on Render Free Tier)
+    await Promise.all([
+      // EMAIL A: Sent to Admin
+      resend.emails.send({
+        from: "Pooja Travels <onboarding@resend.dev>", // Default sender provided by Resend
+        to: [process.env.ADMIN_EMAIL],
+        subject: `🚨 NEW CAB BOOKING REQUEST - ${empName} (${carType})`,
+        html: `
+          <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
+            <h2 style="color: #0f172a; border-bottom: 3px solid #f59e0b; padding-bottom: 10px;">New Booking Alert</h2>
+            <p>Hello Admin, a new travel reservation form payload has been registered via your web portal. Details follow below:</p>
+            ${tableContent}
+            <p style="margin-top: 20px; font-size: 12px; color: #94a3b8;">Pooja Travels CMS Engine System • Automated Notification Link</p>
+          </div>
+        `,
+      }),
 
-    console.log("✉️ Resend API Response Object:", JSON.stringify(response, null, 2));
+      // EMAIL B: Sent to Passenger/Employee
+      resend.emails.send({
+        from: "Pooja Travels <onboarding@resend.dev>",
+        to: [employeeEmail],
+        subject: `🚖 Cab Booking Acknowledgment - Pooja Travels`,
+        html: `
+          <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #cbd5e1; border-radius: 8px;">
+            <h2 style="color: #0f172a; border-bottom: 3px solid #f59e0b; padding-bottom: 10px;">Booking Order Received</h2>
+            <p>Dear ${empName},</p>
+            <p>Thank you for choosing <strong>Pooja Travels</strong>. We have successfully registered your request. Our dispatcher team will reach out with driver routing details shortly.</p>
+            <h4 style="margin-top: 20px; color: #1e293b;">Your Booking Summary:</h4>
+            ${tableContent}
+            <br>
+            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 6px; font-size: 13px; color: #166534;">
+              <strong>Note:</strong> Your companion text has also been sent to our dispatch team via WhatsApp for instant processing.
+            </div>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-top: 20px;">
+            <p style="font-size: 11px; color: #64748b; text-align: center;">
+              Office No. 194, Vishnu Nagar Society, L.U. Gadkari Marg, Chembur, Mumbai-400 074<br>
+              Contact: 9594917750 / 9702909087 | GSTIN: 27AICPT7468H1ZP
+            </p>
+          </div>
+        `,
+      }),
+    ]);
+
+    console.log("✉️ Emails successfully sent via Resend API!");
   } catch (error) {
-    console.error("❌ Resend API error inside mailer.js:", error);
+    console.error("Resend API error inside mailer.js:", error);
     throw error;
   }
 };
